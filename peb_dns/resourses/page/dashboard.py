@@ -17,6 +17,38 @@ class ResourceAmount(Resource):
     method_decorators = [token_required]
 
     def get(self):
+        """
+        功能: 获取各个资源总数
+        ---
+        security:
+          - UserSecurity: []
+        tags:
+          - Page
+        responses:
+          200:
+            description: 请求结果
+            schema:
+              properties:
+                code:
+                  type: integer
+                  description: response code
+                msg:
+                  type: string
+                  description: response message
+                data:
+                  type: string
+            examples:
+                {
+                    "code": 100000,
+                    "msg": "获取成功！",
+                    "data": {
+                        "server_amount": 10,
+                        "view_amount": 20,
+                        "zone_amount": 2,
+                        "record_amount": 2
+                    }
+                }
+        """
         resources_amount = dict(
             server_amount=DBDNSServer.query.count(), 
             view_amount=DBView.query.count(), 
@@ -45,7 +77,7 @@ class DNSServerResolveRate(Resource):
         except IndexError as ie:
             return get_response(RequestCode.OTHER_FAILED,  '获取数据失败！Zabbix上对应解析量itemid没有足够的记录！或解析量itemid有误！')
         except Exception as e:
-            return get_response(RequestCode.OTHER_FAILED,  '获取数据失败！\n{e}'.format(e=str(e)))
+            return get_response(RequestCode.OTHER_FAILED,  '获取Zabbix数据失败！')
         return get_response(RequestCode.SUCCESS, '获取成功！', resolve_rates)
 
 
@@ -58,7 +90,10 @@ class DNSServerStatus(Resource):
         current_server = DBDNSServer.query.get(int(args['server_id']))
         if not current_server:
             return get_response(RequestCode.OTHER_FAILED,  '你请求的资源不存在！')
-        results = current_server.get_server_status()
+        try:
+            results = current_server.get_server_status()
+        except Exception as e:
+            return get_response(RequestCode.OTHER_FAILED, '获取数据异常！')
         return get_response(RequestCode.SUCCESS, '获取成功！', results)
 
 

@@ -197,9 +197,9 @@ class DBPrivilege(db.Model):
     __tablename__ = 'account_privilege'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
-    operation = db.Column(db.Integer)
-    resource_type = db.Column(db.String(64))
-    resource_id = db.Column(db.Integer, index=True)
+    operation = db.Column(db.Integer, default=100)
+    resource_type = db.Column(db.Integer, default=100)
+    resource_id = db.Column(db.Integer, default=0, index=True)
     comment = db.Column(db.String(128))
 
 

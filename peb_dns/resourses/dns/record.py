@@ -71,10 +71,124 @@ paginated_record_fields = {
 
 
 class DNSRecordList(Resource):
-    method_decorators = [token_required] 
+    method_decorators = [token_required]
 
     def get(self):
-        """Get record list."""
+        """
+        功能：获取Record资源列表
+        ---
+        security:
+          - UserSecurity: []
+        tags:
+          - Record
+        parameters:
+          - name: currentPage
+            in: query
+            description: Record list in current page
+            type: integer
+            default: 1
+          - name: pageSize
+            in: query
+            description: the number of records per page.
+            type: integer
+            default: 10
+          - name: zone_id
+            in: query
+            description: Zone id the record related to
+            type: integer
+            default: 1
+          - name: id
+            in: query
+            description: Record id
+            type: integer
+            default: 1
+          - name: host
+            type: string
+            in: query
+            description: record host name
+          - name: record_type
+            type: string
+            in: query
+            description: record type
+            default: A
+            enum: ['A', 'CNAME', 'PTR', 'NS']
+          - name: value
+            type: string
+            in: query
+            description: ip address format
+            default: 1.1.1.1
+          - name: ttl
+            type: integer
+            in: query
+            description: ttl
+            default: 600
+            enum: [600, 1800, 3600]
+          - name: view_name
+            type: string
+            in: query
+            description: view name
+        definitions:
+          Record:
+            properties:
+              total:
+                type: integer
+                description: the number of records
+              current_page:
+                type: integer
+                description: current page number
+              records:
+                type: array
+                items:
+                  $ref: "#/definitions/Record"
+        responses:
+          200:
+            description: 请求结果
+            schema:
+              properties:
+                code:
+                  type: integer
+                  description: response code
+                msg:
+                  type: string
+                  description: response message
+                data:
+                  $ref: "#/definitions/Record"
+            examples:
+                {
+                    "code": 100000,
+                    "data": {
+                        "total": 9,
+                        "records": [
+                            {
+                                "id": 16,
+                                "host": "xxx333",
+                                "record_type": "A",
+                                "ttl": "600",
+                                "value": "0.0.0.0",
+                                "view_name": "jtest",
+                                "comment": "xxx111",
+                                "zone_id": 4,
+                                "can_update": true,
+                                "can_delete": true
+                            },
+                            {
+                                "id": 15,
+                                "host": "xxx333",
+                                "record_type": "A",
+                                "ttl": "600",
+                                "value": "0.0.0.0",
+                                "view_name": "vvvv111111111",
+                                "comment": "xxx111",
+                                "zone_id": 4,
+                                "can_update": true,
+                                "can_delete": true
+                            }
+                        ],
+                        "current_page": 1
+                    },
+                    "msg": "获取成功！"
+                }
+        """
         args = request.args
         zone_id = args.get('zone_id')
         if zone_id:
@@ -103,7 +217,7 @@ class DNSRecordList(Resource):
         if ttl is not None:
             record_query = record_query.filter(DBRecord.ttl==ttl)
         if value is not None:
-            record_query = record_query.filter(DBRecord.value==value)
+            record_query = record_query.filter(DBRecord.value.like('%'+value+'%'))
         if view_name is not None:
             record_query = record_query.filter(DBRecord.view_name==view_name) 
         if zone_id is not None:
@@ -122,7 +236,79 @@ class DNSRecordList(Resource):
         return marshal(response_wrapper, response_wrapper_fields)
 
     def post(self):
-        """Create new record."""
+        """
+        功能：创建新的Record
+        ---
+        security:
+          - UserSecurity: []
+        tags:
+          - Record
+        definitions:
+          Record_Parm:
+            properties:
+              host:
+                type: string
+                in: query
+                description: record host name
+                default: host
+              record_type:
+                type: string
+                in: query
+                description: record type
+                default: A
+                enum: ['A', 'CNAME', 'PTR', 'NS']
+              value:
+                type: string
+                in: query
+                description: ip address format
+                default: 1.1.1.1
+              ttl:
+                type: integer
+                in: query
+                description: ttl
+                default: 600
+                enum: [600, 1800, 3600]
+              view_name:
+                type: string
+                in: query
+                description: view name
+                default: v1
+              comment:
+                type: string
+                in: query
+                description: comment
+              zone_id:
+                type: integer
+                in: query
+                description: zone id
+        parameters:
+          - in: body
+            name: body
+            schema:
+              id: Add_Record
+              required:
+                - name
+              $ref: "#/definitions/Record_Parm"
+        responses:
+          200:
+            description: 请求结果
+            schema:
+              properties:
+                code:
+                  type: integer
+                  description: response code
+                msg:
+                  type: string
+                  description: response message
+                data:
+                  type: string
+            examples:
+                {
+                    "code": 100000,
+                    "msg": "添加成功",
+                    "data": null
+                }
+        """ 
         args = dns_record_common_parser.parse_args()
         current_zone = DBZone.query.get(args['zone_id'])
         if not current_zone:
@@ -153,7 +339,8 @@ class DNSRecordList(Resource):
                 value = args['value'],
                 view_name = v_name,
                 comment = args['comment'],
-                zone_id = current_zone.id
+                zone_id = current_zone.id,
+                full_domain_name = args['host'] + '.' + current_zone.name,
                 )
             db.session.add(new_record)
             db.session.flush()
@@ -170,7 +357,7 @@ class DNSRecordList(Resource):
                 db.session.commit()
             except Exception as e:
                 db.session.rollback()
-                return get_response(RequestCode.OTHER_FAILED,  "{e}".format(e=str(e)))
+                return get_response(RequestCode.OTHER_FAILED,  "创建失败！")
         return get_response(RequestCode.SUCCESS, '创建成功！')
 
     def _add_privilege_for_record(self, current_zone, new_record):
@@ -226,7 +413,52 @@ class DNSRecord(Resource):
     @resource_exists_required(ResourceType.RECORD)
     @permission_required(ResourceType.RECORD, Operation.ACCESS)
     def get(self, record_id):
-        """Get the detail info of the single record."""
+        """
+        功能：获取指定ID的Record详情
+        ---
+        security:
+          - UserSecurity: []
+        tags:
+          - Record
+        parameters:
+          - name: record_id
+            in: path
+            description:
+            type: integer
+            required: true
+            default: 1
+        responses:
+          200:
+            description: 请求结果
+            schema:
+              properties:
+                code:
+                  type: integer
+                  description: response code
+                msg:
+                  type: string
+                  description: response message
+                data:
+                  type: string
+                  description: response data
+            examples:
+                {
+                    "code": 100000,
+                    "msg": "获取成功！",
+                    "data": {
+                        "id": 31,
+                        "host": "xxx333",
+                        "record_type": "A",
+                        "ttl": "600",
+                        "value": "0.0.0.0",
+                        "view_name": "wqerqwer",
+                        "comment": "xxx111",
+                        "zone_id": 4,
+                        "can_update": true,
+                        "can_delete": true
+                    }
+                }
+        """
         current_record = DBRecord.query.get(record_id)
         results_wrapper = marshal(current_record, record_fields)
         return get_response(RequestCode.SUCCESS, '获取成功！', results_wrapper)
@@ -234,7 +466,43 @@ class DNSRecord(Resource):
     @resource_exists_required(ResourceType.RECORD)
     @permission_required(ResourceType.RECORD, Operation.UPDATE)
     def put(self, record_id):
-        """Update the indicated record."""
+        """
+        功能：修改指定ID的Record
+        ---
+        security:
+          - UserSecurity: []
+        tags:
+          - Record
+        parameters:
+          - name: record_id
+            in: path
+            description: record id
+            type: integer
+            required: true
+            default: 1
+          - in: body
+            name: body
+            schema:
+              id: Update_Record
+              $ref: "#/definitions/Record_Parm"
+        responses:
+          200:
+            description: 请求结果
+            schema:
+              properties:
+                code:
+                  type: integer
+                msg:
+                  type: string
+                data:
+                  type: string
+            examples:
+                {
+                    "code": 100000,
+                    "msg": "修改成功",
+                    "data": null
+                }
+        """
         args = dns_record_common_parser.parse_args()
         current_record = DBRecord.query.get(record_id)
         unique_record = DBRecord.query.filter(
@@ -244,27 +512,58 @@ class DNSRecord(Resource):
                                 DBRecord.view_name==args['view_name']).first()
         if unique_record:
             return get_response(RequestCode.OTHER_FAILED,  '修改失败 !重复的记录！！同样的Zone，同样的主机，\
-                    同样的View 的记录只能存在一个。')
+                    同样的View的记录只能存在一个。')
                     
         try:
             self._update_record(current_record.zone, current_record, args)
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            return get_response(RequestCode.OTHER_FAILED,  "{e}".format(e=str(e)))
+            return get_response(RequestCode.OTHER_FAILED,  "修改失败！")
         return get_response(RequestCode.SUCCESS, '修改成功！')
 
     @resource_exists_required(ResourceType.RECORD)
     @permission_required(ResourceType.RECORD, Operation.DELETE)
     def delete(self, record_id):
-        """Delete the indicated record."""
+        """
+        功能: 删除指定ID的Record
+        ---
+        security:
+          - UserSecurity: []
+        tags:
+          - Record
+        parameters:
+          - name: record_id
+            in: path
+            description: Record id
+            type: integer
+            required: true
+            default: 1
+        responses:
+          200:
+            description: 请求结果
+            schema:
+              properties:
+                code:
+                  type: string
+                msg:
+                  type: string
+                data:
+                  type: string
+            examples:
+                {
+                    "code": 100000,
+                    "msg": "删除成功",
+                    "data": null
+                }
+        """
         current_record = DBRecord.query.get(record_id)
         try:
             self._delete_record(current_record.zone, current_record)
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            return get_response(RequestCode.OTHER_FAILED,  "{e}".format(e=str(e)))
+            return get_response(RequestCode.OTHER_FAILED,  "删除失败！")
         return get_response(RequestCode.SUCCESS, '删除成功！')
 
     def _update_record(self, current_zone, current_record, args):
@@ -275,6 +574,7 @@ class DNSRecord(Resource):
         current_record.view_name = args['view_name']
         current_record.comment = args['comment']
         current_record.zone_id = args['zone_id']
+        current_record.full_domain_name = args['host'] + '.' + current_zone.name
         current_record.gmt_modified = datetime.now()
         db.session.add(current_record)
         log = DBOperationLog(
@@ -315,6 +615,23 @@ class DNSRecord(Resource):
                 DBRolePrivilege.privilege_id == record_privilege.id
                 ).delete()
         current_record_privileges_query.delete()
+
+
+class DNSRecordsForSearch(Resource):
+  
+    def get(self):
+        args = request.args
+        inner_domain = args.get('inner', 1, type=int)
+        fuzzy_match = args.get('fuzzy', 1, type=int)
+        domain = args.get('domain', '', type=str)
+        zone_groups = (0,) if inner_domain==0 else (1, 2)
+        record_query = DBRecord.query.join(DBZone, and_(DBRecord.zone_id == DBZone.id, DBZone.zone_group.in_(zone_groups)))
+        if fuzzy_match:
+            record_list = record_query.filter(DBRecord.full_domain_name.like('%'+domain+'%')).all()
+        else:
+            record_list = record_query.filter(DBRecord.full_domain_name == domain).all()
+        results = list(set([r.full_domain_name for r in record_list]))
+        return get_response(RequestCode.SUCCESS, '获取成功！', results)
 
 
         

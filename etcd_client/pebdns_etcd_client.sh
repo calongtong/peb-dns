@@ -57,8 +57,8 @@ ETCD_SERVER_NAME="http://dev-etcd01:2379/v2/keys/opscmdb"
 
 #ETCD集群服务器
 [ "x${ETCD_ENV}" == "xdev" ] &&  ETCD_SERVER_NAME="http://dev-etcd01:2379/v2/keys/opscmdb"
-[ "x${ETCD_ENV}" == "xanhouse" ] &&  ETCD_SERVER_NAME="http://shzr-etcd01:2379/v2/keys/opscmdb"
-[ "x${ETCD_ENV}" == "xga" ] &&  ETCD_SERVER_NAME="http://shbx-etcd01:2379/v2/keys/opscmdb"
+[ "x${ETCD_ENV}" == "xanhouse" ] &&  ETCD_SERVER_NAME="http://anhouse-etcd01:2379/v2/keys/opscmdb"
+[ "x${ETCD_ENV}" == "xga" ] &&  ETCD_SERVER_NAME="http://ga-etcd01:2379/v2/keys/opscmdb"
 
 
 
